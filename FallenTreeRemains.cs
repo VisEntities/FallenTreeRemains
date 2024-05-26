@@ -121,6 +121,9 @@ namespace Oxide.Plugins
 
         private void OnDispenserBonus(ResourceDispenser dispenser, BasePlayer player, Item item)
         {
+            if (player == null)
+                return;
+
             TreeEntity tree = dispenser.GetComponentInParent<TreeEntity>();
             if (tree != null)
             {
