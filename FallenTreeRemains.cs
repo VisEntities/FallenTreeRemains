@@ -127,7 +127,10 @@ namespace Oxide.Plugins
             TreeEntity tree = dispenser.GetComponentInParent<TreeEntity>();
             if (tree != null)
             {
-                SpawnTreeRemains(tree, player);
+                timer.Once(tree.fallDuration + 0.7f, () =>
+                {
+                    SpawnTreeRemains(tree, player);
+                });
             }
         }
 
@@ -136,26 +139,23 @@ namespace Oxide.Plugins
         #region Tree Remains Spawning
 
         private void SpawnTreeRemains(TreeEntity tree, BasePlayer player)
-        {
-            timer.Once(tree.fallDuration + 0.7f, () =>
+        {    
+            if (tree == null || player == null)
+                return;
+
+            if (!tree.PrefabName.Contains("arid") && ChanceSucceeded(_config.ChanceToSpawnStump))
             {
-                if (tree == null || player == null)
-                    return;
-
-                if (!tree.PrefabName.Contains("arid") && ChanceSucceeded(_config.ChanceToSpawnStump))
+                if (TerrainUtil.GetGroundInfo(tree.transform.position, out RaycastHit raycastHit, 5f, LAYER_TERRAIN | LAYER_WORLD))
                 {
-                    if (TerrainUtil.GetGroundInfo(tree.transform.position, out RaycastHit raycastHit, 5f, LAYER_TERRAIN | LAYER_WORLD))
-                    {
-                        CollectibleEntity treeStump = SpawnStump(PREFAB_STUMP, raycastHit.point, Quaternion.FromToRotation(Vector3.up, raycastHit.normal));
-                    }
+                    CollectibleEntity treeStump = SpawnStump(PREFAB_STUMP, raycastHit.point, Quaternion.FromToRotation(Vector3.up, raycastHit.normal));
                 }
+            }
 
-                string deadLogPrefab = GetDeadLogPrefabForTree(tree);
-                if (deadLogPrefab != null)
-                {
-                    ResourceEntity deadLog = SpawnDeadLog(deadLogPrefab, tree, player.eyes.HeadRay().direction);
-                }
-            });
+            string deadLogPrefab = GetDeadLogPrefabForTree(tree);
+            if (deadLogPrefab != null)
+            {
+                ResourceEntity deadLog = SpawnDeadLog(deadLogPrefab, tree, player.eyes.HeadRay().direction);
+            }      
         }
 
         private CollectibleEntity SpawnStump(string prefabPath, Vector3 position, Quaternion rotation, bool wakeUpNow = true)
