@@ -98,9 +98,9 @@ namespace Oxide.Plugins
             {
                 Version = Version.ToString(),
                 ChanceToSpawnStump = 100,
-                ChanceToSpawnDryLog = 100,
-                ChanceToSpawnSnowLog = 100,
-                ChanceToSpawnWetLog = 100
+                ChanceToSpawnDryLog = 50,
+                ChanceToSpawnSnowLog = 50,
+                ChanceToSpawnWetLog = 50
             };
         }
 
