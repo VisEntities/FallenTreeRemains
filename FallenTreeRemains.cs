@@ -1,10 +1,16 @@
-﻿using Newtonsoft.Json;
+﻿/*
+ * Copyright (C) 2024 Game4Freak.io
+ * This mod is provided under the Game4Freak EULA.
+ * Full legal terms can be found at https://game4freak.io/eula/
+ */
+
+using Newtonsoft.Json;
 using Rust;
 using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Fallen Tree Remains", "VisEntities", "1.0.0")]
+    [Info("Fallen Tree Remains", "VisEntities", "1.1.0")]
     [Description("Leaves a dead log and stump after a tree is cut down, which can also be harvested.")]
     public class FallenTreeRemains : RustPlugin
     {
@@ -17,6 +23,7 @@ namespace Oxide.Plugins
         private const int LAYER_TERRAIN = Layers.Mask.Terrain;
         
         private const string PREFAB_STUMP = "assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab";
+        private const string PREFAB_WOOD_PILE = "assets/bundled/prefabs/autospawn/resource/wood_log_pile/wood-pile.prefab";
         private static readonly string[] _dryDeadLogPrefabs = new[]
         {
             "assets/bundled/prefabs/autospawn/resource/logs_dry/dead_log_a.prefab",
@@ -56,6 +63,9 @@ namespace Oxide.Plugins
 
             [JsonProperty("Chance To Spawn Stump")]
             public int ChanceToSpawnStump { get; set; }
+
+            [JsonProperty("Spawn Wood Pile Instead Of Stump")] 
+            public bool SpawnWoodPileInsteadOfStump { get; set; }
         }
 
         protected override void LoadConfig()
@@ -88,6 +98,12 @@ namespace Oxide.Plugins
             if (string.Compare(_config.Version, "1.0.0") < 0)
                 _config = defaultConfig;
 
+
+            if (string.Compare(_config.Version, "1.1.0") < 0)
+            {
+                _config.SpawnWoodPileInsteadOfStump = defaultConfig.SpawnWoodPileInsteadOfStump;
+            }
+
             PrintWarning("Config update complete! Updated from version " + _config.Version + " to " + Version.ToString());
             _config.Version = Version.ToString();
         }
@@ -100,7 +116,8 @@ namespace Oxide.Plugins
                 ChanceToSpawnStump = 100,
                 ChanceToSpawnDryLog = 50,
                 ChanceToSpawnSnowLog = 50,
-                ChanceToSpawnWetLog = 50
+                ChanceToSpawnWetLog = 50,
+                SpawnWoodPileInsteadOfStump = false
             };
         }
 
@@ -139,7 +156,7 @@ namespace Oxide.Plugins
         #region Tree Remains Spawning
 
         private void SpawnTreeRemains(TreeEntity tree, BasePlayer player)
-        {    
+        {
             if (tree == null || player == null)
                 return;
 
@@ -147,7 +164,13 @@ namespace Oxide.Plugins
             {
                 if (TerrainUtil.GetGroundInfo(tree.transform.position, out RaycastHit raycastHit, 5f, LAYER_TERRAIN | LAYER_WORLD))
                 {
-                    CollectibleEntity treeStump = SpawnStump(PREFAB_STUMP, raycastHit.point, Quaternion.FromToRotation(Vector3.up, raycastHit.normal));
+                    string stumpPrefab;
+                    if (_config.SpawnWoodPileInsteadOfStump)
+                        stumpPrefab = PREFAB_WOOD_PILE;
+                    else
+                        stumpPrefab = PREFAB_STUMP;
+
+                    BaseEntity entity = SpawnStump(stumpPrefab, raycastHit.point, Quaternion.FromToRotation(Vector3.up, raycastHit.normal));
                 }
             }
 
@@ -155,12 +178,12 @@ namespace Oxide.Plugins
             if (deadLogPrefab != null)
             {
                 ResourceEntity deadLog = SpawnDeadLog(deadLogPrefab, tree, player.eyes.HeadRay().direction);
-            }      
+            }
         }
 
-        private CollectibleEntity SpawnStump(string prefabPath, Vector3 position, Quaternion rotation, bool wakeUpNow = true)
+        private BaseEntity SpawnStump(string prefabPath, Vector3 position, Quaternion rotation, bool wakeUpNow = true)
         {
-            CollectibleEntity stump = GameManager.server.CreateEntity(prefabPath, position, rotation, wakeUpNow) as CollectibleEntity;
+            BaseEntity stump = GameManager.server.CreateEntity(prefabPath, position, rotation, wakeUpNow);
             if (stump == null)
                 return null;
 
