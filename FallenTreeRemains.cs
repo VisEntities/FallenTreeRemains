@@ -10,7 +10,7 @@ using UnityEngine;
 
 namespace Oxide.Plugins
 {
-    [Info("Fallen Tree Remains", "VisEntities", "1.1.0")]
+    [Info("Fallen Tree Remains", "VisEntities", "1.2.0")]
     [Description("Leaves a dead log and stump after a tree is cut down, which can also be harvested.")]
     public class FallenTreeRemains : RustPlugin
     {
@@ -19,10 +19,10 @@ namespace Oxide.Plugins
         private static FallenTreeRemains _plugin;
         private static Configuration _config;
 
-        private const int LAYER_WORLD = Layers.Mask.World;
-        private const int LAYER_TERRAIN = Layers.Mask.Terrain;
+        private const int LAYER_GROUND = Layers.Mask.World | Layers.Mask.Terrain;
         
         private const string PREFAB_STUMP = "assets/bundled/prefabs/autospawn/collectable/wood/wood-collectable.prefab";
+        private const string PREFAB_JUNGLE_STUMP = "assets/content/nature/treessource/kapok_tree/vineswingingtreestump.prefab";
         private const string PREFAB_WOOD_PILE = "assets/bundled/prefabs/autospawn/resource/wood_log_pile/wood-pile.prefab";
         private static readonly string[] _dryDeadLogPrefabs = new[]
         {
@@ -162,13 +162,18 @@ namespace Oxide.Plugins
 
             if (!tree.PrefabName.Contains("arid") && ChanceSucceeded(_config.ChanceToSpawnStump))
             {
-                if (TerrainUtil.GetGroundInfo(tree.transform.position, out RaycastHit raycastHit, 5f, LAYER_TERRAIN | LAYER_WORLD))
+                if (TerrainUtil.GetGroundInfo(tree.transform.position, out RaycastHit raycastHit, 5f, LAYER_GROUND))
                 {
                     string stumpPrefab;
                     if (_config.SpawnWoodPileInsteadOfStump)
                         stumpPrefab = PREFAB_WOOD_PILE;
                     else
-                        stumpPrefab = PREFAB_STUMP;
+                    {
+                        if (tree.PrefabName.Contains("vine_swinging"))
+                            stumpPrefab = PREFAB_JUNGLE_STUMP;
+                        else
+                            stumpPrefab = PREFAB_STUMP;
+                    }
 
                     BaseEntity entity = SpawnStump(stumpPrefab, raycastHit.point, Quaternion.FromToRotation(Vector3.up, raycastHit.normal));
                 }
@@ -209,7 +214,7 @@ namespace Oxide.Plugins
             deadLog.transform.rotation = Quaternion.Euler(0, 90f, 0) * Quaternion.LookRotation(fallDirection);
             deadLog.SendNetworkUpdateImmediate();
 
-            if (!TerrainUtil.GetGroundInfo(deadLog.transform.position, out RaycastHit raycastHit, 5f, LAYER_TERRAIN | LAYER_WORLD))
+            if (!TerrainUtil.GetGroundInfo(deadLog.transform.position, out RaycastHit raycastHit, 5f, LAYER_GROUND))
             {
                 deadLog.Kill();
                 return null;
@@ -236,6 +241,11 @@ namespace Oxide.Plugins
             {
                 return _wetDeadLogPrefabs[Random.Range(0, _wetDeadLogPrefabs.Length)];
             }
+            else if ((tree.PrefabName.Contains("jungle") || tree.PrefabName.Contains("vine_swinging"))
+                && ChanceSucceeded(_config.ChanceToSpawnDryLog))
+            {
+                return _dryDeadLogPrefabs[Random.Range(0, _dryDeadLogPrefabs.Length)];
+            }
             else if (tree.PrefabName.Contains("arid"))
             {
                 return null;
@@ -248,9 +258,16 @@ namespace Oxide.Plugins
 
         #region Helper Functions
 
-        private bool ChanceSucceeded(int chance)
+        private static bool ChanceSucceeded(int percent)
         {
-            return Random.Range(0, 100) < chance;
+            if (percent <= 0)
+                return false;
+
+            if (percent >= 100)
+                return true;
+
+            float roll = Random.Range(0f, 100f);
+            return roll < percent;
         }
 
         #endregion Helper Functions
